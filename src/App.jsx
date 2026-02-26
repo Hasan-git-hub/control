@@ -1,102 +1,147 @@
-import { useEffect, useState } from 'react'
-import './App.css'
+import { useState } from "react";
+import {
+  Navigate,
+  NavLink,
+  Outlet,
+  Route,
+  Routes,
+  useNavigate,
+} from "react-router-dom";
+import DashboardProfile from "./router/profil";
+import DashboardSetting from "./router/setting";
+import DashboardStats from "./router/stats";
+import "./App.css";
 
-const LOGIN_API = 'https://dummyjson.com/auth/login'
-const USERS_API = 'https://dummyjson.com/users?limit=30&select=username,password'
+const LOGIN_API = "https://dummyjson.com/auth/login";
+const TOKEN_KEY = "auth_token";
 
-function App() {
-  const [credentials, setCredentials] = useState({ username: 'miar', password: 'miarpass' })
-  const [testUsers, setTestUsers] = useState([])
-  const [testUsersError, setTestUsersError] = useState('')
-  const [profile, setProfile] = useState(null)
-  const [error, setError] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
+const PATHS = {
+  login: "/login",
+  home: "/",
+  about: "/about",
+  dashboard: "/dashboard",
+};
 
-  useEffect(() => {
-    const loadUsers = async () => {
-      setTestUsersError('')
-      try {
-        const response = await fetch(USERS_API)
-        const data = await response.json()
-        if (!response.ok) {
-          throw new Error(data.message || 'User list olishda xatolik.')
-        }
+const getToken = () =>
+  typeof window === "undefined" ? "" : localStorage.getItem(TOKEN_KEY) || "";
 
-        const list = (data.users || []).map((user) => ({
-          username: user.username,
-          password: user.password,
-        }))
+const isAuthenticated = () => Boolean(getToken());
+const navLinkClass = ({ isActive }) => (isActive ? "active" : "");
+const tabLinkClass = ({ isActive }) => (isActive ? "active-tab" : "tab");
 
-        setTestUsers(list)
-        console.log('DummyJSON user credentials:')
-        console.table(list)
-      } catch (fetchError) {
-        setTestUsersError(fetchError.message || 'User list olinmadi.')
-        console.error('User list olinmadi:', fetchError.message)
-      }
-    }
+function RequireAuth() {
+  return isAuthenticated() ? <Outlet /> : <Navigate to={PATHS.login} replace />;
+}
 
-    loadUsers()
-  }, [])
+function GuestOnly() {
+  return isAuthenticated() ? <Navigate to={PATHS.dashboard} replace /> : <Outlet />;
+}
+
+function MainLayout() {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    localStorage.removeItem(TOKEN_KEY);
+    navigate(PATHS.login, { replace: true });
+  };
+
+  return (
+    <div className="app-shell">
+      <header className="topbar">
+        <nav className="main-nav">
+          <NavLink to={PATHS.home} end className={navLinkClass}>
+            Home
+          </NavLink>
+          <NavLink to={PATHS.about} className={navLinkClass}>
+            About
+          </NavLink>
+          <NavLink to={PATHS.dashboard} className={navLinkClass}>
+            Dashboard
+          </NavLink>
+        </nav>
+        <div className="topbar-right">
+          <span className="username">Authenticated</span>
+          <button className="logout-btn" onClick={handleLogout} type="button">
+            Logout
+          </button>
+        </div>
+      </header>
+
+      <main className="page">
+        <Outlet />
+      </main>
+    </div>
+  );
+}
+
+function LoginPage() {
+  const navigate = useNavigate();
+  const [credentials, setCredentials] = useState({
+    username: "miar",
+    password: "miarpass",
+  });
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleChange = (event) => {
-    const { name, value } = event.target
-    setCredentials((prev) => ({ ...prev, [name]: value }))
-  }
+    const { name, value } = event.target;
+    setCredentials((prev) => ({ ...prev, [name]: value }));
+  };
 
   const handleSubmit = async (event) => {
-    event.preventDefault()
-    setError('')
-    setProfile(null)
+    event.preventDefault();
+    setError("");
 
-    const username = credentials.username.trim()
-    const password = credentials.password.trim()
+    const username = credentials.username.trim();
+    const password = credentials.password.trim();
 
     if (!username || !password) {
-      setError('Username va password kiriting.')
-      return
+      setError("Username va password kiriting.");
+      return;
     }
 
-    setIsLoading(true)
+    setIsLoading(true);
     try {
       const response = await fetch(LOGIN_API, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           username,
           password,
           expiresInMins: 30,
         }),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        if (data.message === 'Invalid credentials') {
-          throw new Error('Login xato. To‘g‘ri test login: miar / miarpass')
-        }
-        throw new Error(data.message || 'Login xatoligi yuz berdi.')
+        throw new Error(data.message || "Login xatoligi.");
       }
 
-      const fullName = [data.firstName, data.lastName].filter(Boolean).join(' ')
-      setProfile({
-        image: data.image,
-        fullName: fullName || data.username,
-        email: data.email,
-        username: data.username ?? username,
-        password,
-      })
+      const token = data.accessToken || data.token;
+      if (!token) {
+        throw new Error("Token topilmadi.");
+      }
+
+      localStorage.setItem(TOKEN_KEY, token);
+      navigate(PATHS.dashboard, { replace: true });
     } catch (requestError) {
-      setError(requestError.message || 'Server bilan ulanishda xatolik.')
+      const message =
+        requestError instanceof Error
+          ? requestError.message
+          : "Server bilan ulanishda xatolik.";
+      setError(message);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
-    <main className="app">
-      <form className="login-form" onSubmit={handleSubmit}>
+    <div className="login-page">
+      <form className="login-card" onSubmit={handleSubmit}>
+        <h1>Login</h1>
+        <p className="login-hint">Test login: miar / miarpass</p>
         <input
           className="input"
           type="text"
@@ -116,53 +161,88 @@ function App() {
           autoComplete="current-password"
         />
         <button className="submit-btn" type="submit" disabled={isLoading}>
-          {isLoading ? 'Loading...' : 'Submit'}
+          {isLoading ? "Loading..." : "Login"}
         </button>
+        {error ? <p className="message message-error">{error}</p> : null}
       </form>
-
-      <section className="test-logins">
-        <p className="hint">Test login:</p>
-        {testUsersError ? <p className="message message-error">{testUsersError}</p> : null}
-        {testUsers.length > 0 ? (
-          <div className="test-table-wrap">
-            <table className="test-table">
-              <thead>
-                <tr>
-                  <th>Username</th>
-                  <th>Password</th>
-                </tr>
-              </thead>
-              <tbody>
-                {testUsers.map((user) => (
-                  <tr key={user.username}>
-                    <td>{user.username}</td>
-                    <td>{user.password}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : null}
-      </section>
-      {error ? <p className="message message-error">{error}</p> : null}
-
-      {profile ? (
-        <section className="profile-card">
-          <div className="avatar-frame">
-            <img src={profile.image} alt={profile.fullName} className="avatar" />
-          </div>
-          <p className="profile-name">{profile.fullName}</p>
-          <p className="profile-text">{profile.email}</p>
-          <p className="profile-text">
-            Username: <span>{profile.username}</span>
-          </p>
-          <p className="profile-text">
-            Password: <span>{profile.password}</span>
-          </p>
-        </section>
-      ) : null}
-    </main>
-  )
+    </div>
+  );
 }
 
-export default App
+function HomePage() {
+  return (
+    <section className="card">
+      <h2>Home</h2>
+      <p>Bu protected Home sahifa.</p>
+    </section>
+  );
+}
+
+function AboutPage() {
+  return (
+    <section className="card">
+      <h2>About</h2>
+      <p>Bu protected About sahifa.</p>
+    </section>
+  );
+}
+
+function DashboardLayout() {
+  return (
+    <section className="card">
+      <h2>Dashboard</h2>
+      <div className="dashboard-nav">
+        <NavLink to={PATHS.dashboard} end className={tabLinkClass}>
+          Overview
+        </NavLink>
+        <NavLink to="/dashboard/profile" className={tabLinkClass}>
+          Profile
+        </NavLink>
+        <NavLink to="/dashboard/settings" className={tabLinkClass}>
+          Settings
+        </NavLink>
+        <NavLink to="/dashboard/stats" className={tabLinkClass}>
+          Stats
+        </NavLink>
+      </div>
+      <div className="dashboard-content">
+        <Outlet />
+      </div>
+    </section>
+  );
+}
+
+function DashboardOverview() {
+  return <p>Dashboard ichidagi asosiy nested sahifa (overview).</p>;
+}
+
+function FallbackRedirect() {
+  return <Navigate to={isAuthenticated() ? PATHS.home : PATHS.login} replace />;
+}
+
+function App() {
+  return (
+    <Routes>
+      <Route element={<GuestOnly />}>
+        <Route path={PATHS.login} element={<LoginPage />} />
+      </Route>
+
+      <Route element={<RequireAuth />}>
+        <Route element={<MainLayout />}>
+          <Route path={PATHS.home} element={<HomePage />} />
+          <Route path={PATHS.about} element={<AboutPage />} />
+          <Route path={PATHS.dashboard} element={<DashboardLayout />}>
+            <Route index element={<DashboardOverview />} />
+            <Route path="profile" element={<DashboardProfile />} />
+            <Route path="settings" element={<DashboardSetting />} />
+            <Route path="stats" element={<DashboardStats />} />
+          </Route>
+        </Route>
+      </Route>
+
+      <Route path="*" element={<FallbackRedirect />} />
+    </Routes>
+  );
+}
+
+export default App;
