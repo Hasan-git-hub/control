@@ -7,9 +7,9 @@ import {
   Routes,
   useNavigate,
 } from "react-router-dom";
-import DashboardProfile from "./router/profil";
+import DashboardUsers from "./router/profil";
 import DashboardSetting from "./router/setting";
-import DashboardStats from "./router/stats";
+import DashboardApi from "./router/api";
 import "./App.css";
 
 const LOGIN_API = "https://dummyjson.com/auth/login";
@@ -34,7 +34,11 @@ function RequireAuth() {
 }
 
 function GuestOnly() {
-  return isAuthenticated() ? <Navigate to={PATHS.dashboard} replace /> : <Outlet />;
+  return isAuthenticated() ? (
+    <Navigate to={PATHS.dashboard} replace />
+  ) : (
+    <Outlet />
+  );
 }
 
 function MainLayout() {
@@ -195,14 +199,14 @@ function DashboardLayout() {
         <NavLink to={PATHS.dashboard} end className={tabLinkClass}>
           Overview
         </NavLink>
-        <NavLink to="/dashboard/profile" className={tabLinkClass}>
-          Profile
+        <NavLink to="/dashboard/users" className={tabLinkClass}>
+          Users
         </NavLink>
         <NavLink to="/dashboard/settings" className={tabLinkClass}>
-          Settings
+          Market
         </NavLink>
-        <NavLink to="/dashboard/stats" className={tabLinkClass}>
-          Stats
+        <NavLink to="/dashboard/api" className={tabLinkClass}>
+          Todo
         </NavLink>
       </div>
       <div className="dashboard-content">
@@ -233,9 +237,17 @@ function App() {
           <Route path={PATHS.about} element={<AboutPage />} />
           <Route path={PATHS.dashboard} element={<DashboardLayout />}>
             <Route index element={<DashboardOverview />} />
-            <Route path="profile" element={<DashboardProfile />} />
+            <Route path="users" element={<DashboardUsers />} />
+            <Route
+              path="profile"
+              element={<Navigate to="/dashboard/users" replace />}
+            />
             <Route path="settings" element={<DashboardSetting />} />
-            <Route path="stats" element={<DashboardStats />} />
+            <Route path="api" element={<DashboardApi />} />
+            <Route
+              path="stats"
+              element={<Navigate to="/dashboard/api" replace />}
+            />
           </Route>
         </Route>
       </Route>

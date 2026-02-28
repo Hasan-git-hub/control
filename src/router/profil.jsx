@@ -1,5 +1,11 @@
-function DashboardProfile() {
-  return <p>Dashboard ichidagi profile nested sahifa.</p>;
+import UsersTable from "../components/users";
+
+function DashboardUsers() {
+  return (
+    <div className="profile-stack">
+      <UsersTable />
+    </div>
+  );
 }
 
-export default DashboardProfile;
+export default DashboardUsers;
